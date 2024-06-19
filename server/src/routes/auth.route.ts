@@ -1,106 +1,37 @@
-import envConfig from '@/config'
-import {
-  loginController,
-  logoutController,
-  slideSessionController,
-  registerController
-} from '@/controllers/auth.controller'
+import { loginController, logoutController, refreshTokenController } from '@/controllers/auth.controller'
 import { requireLoginedHook } from '@/hooks/auth.hooks'
 import {
   LoginBody,
   LoginBodyType,
   LoginRes,
   LoginResType,
-  SlideSessionBody,
-  SlideSessionBodyType,
-  SlideSessionRes,
-  SlideSessionResType,
-  RegisterBody,
-  RegisterBodyType,
-  RegisterRes,
-  RegisterResType
+  LogoutBody,
+  LogoutBodyType,
+  RefreshTokenBody,
+  RefreshTokenBodyType,
+  RefreshTokenRes,
+  RefreshTokenResType
 } from '@/schemaValidations/auth.schema'
 import { MessageRes, MessageResType } from '@/schemaValidations/common.schema'
 import { FastifyInstance, FastifyPluginOptions } from 'fastify'
 
 export default async function authRoutes(fastify: FastifyInstance, options: FastifyPluginOptions) {
-  fastify.post<{
-    Reply: RegisterResType
-    Body: RegisterBodyType
-  }>(
-    '/register',
-    {
-      schema: {
-        response: {
-          200: RegisterRes
-        },
-        body: RegisterBody
-      }
-    },
-    async (request, reply) => {
-      const { body } = request
-      const { session, account } = await registerController(body)
-      if (envConfig.COOKIE_MODE) {
-        reply
-          .setCookie('sessionToken', session.token, {
-            path: '/',
-            httpOnly: true,
-            secure: true,
-            expires: session.expiresAt,
-            sameSite: 'none',
-            domain: envConfig.DOMAIN
-          })
-          .send({
-            message: 'Đăng ký thành công',
-            data: {
-              token: session.token,
-              expiresAt: session.expiresAt.toISOString(),
-              account
-            }
-          })
-      } else {
-        reply.send({
-          message: 'Đăng ký thành công',
-          data: {
-            token: session.token,
-            expiresAt: session.expiresAt.toISOString(),
-            account
-          }
-        })
-      }
-    }
-  )
-  fastify.post<{ Reply: MessageResType }>(
+  fastify.post<{ Reply: MessageResType; Body: LogoutBodyType }>(
     '/logout',
     {
       schema: {
         response: {
           200: MessageRes
-        }
+        },
+        body: LogoutBody
       },
       preValidation: fastify.auth([requireLoginedHook])
     },
     async (request, reply) => {
-      const sessionToken = envConfig.COOKIE_MODE
-        ? request.cookies.sessionToken
-        : request.headers.authorization?.split(' ')[1]
-      const message = await logoutController(sessionToken as string)
-      if (envConfig.COOKIE_MODE) {
-        reply
-          .clearCookie('sessionToken', {
-            path: '/',
-            httpOnly: true,
-            sameSite: 'none',
-            secure: true
-          })
-          .send({
-            message
-          })
-      } else {
-        reply.send({
-          message
-        })
-      }
+      const message = await logoutController(request.body.refreshToken)
+      reply.send({
+        message
+      })
     }
   )
   fastify.post<{ Reply: LoginResType; Body: LoginBodyType }>(
@@ -115,82 +46,36 @@ export default async function authRoutes(fastify: FastifyInstance, options: Fast
     },
     async (request, reply) => {
       const { body } = request
-      const { session, account } = await loginController(body)
-      if (envConfig.COOKIE_MODE) {
-        reply
-          .setCookie('sessionToken', session.token, {
-            path: '/',
-            httpOnly: true,
-            secure: true,
-            expires: session.expiresAt,
-            sameSite: 'none',
-            domain: envConfig.DOMAIN
-          })
-          .send({
-            message: 'Đăng nhập thành công',
-            data: {
-              token: session.token,
-              expiresAt: session.expiresAt.toISOString(),
-              account
-            }
-          })
-      } else {
-        reply.send({
-          message: 'Đăng nhập thành công',
-          data: {
-            token: session.token,
-            expiresAt: session.expiresAt.toISOString(),
-            account
-          }
-        })
-      }
+      const { accessToken, refreshToken, account } = await loginController(body)
+      reply.send({
+        message: 'Đăng nhập thành công',
+        data: {
+          account: account as LoginResType['data']['account'],
+          accessToken,
+          refreshToken
+        }
+      })
     }
   )
-
-  fastify.post<{ Reply: SlideSessionResType; Body: SlideSessionBodyType }>(
-    '/slide-session',
+  fastify.post<{
+    Reply: RefreshTokenResType
+    Body: RefreshTokenBodyType
+  }>(
+    '/refresh-token',
     {
       schema: {
         response: {
-          200: SlideSessionRes
+          200: RefreshTokenRes
         },
-        body: SlideSessionBody
-      },
-      preValidation: fastify.auth([requireLoginedHook])
+        body: RefreshTokenBody
+      }
     },
     async (request, reply) => {
-      const sessionToken = envConfig.COOKIE_MODE
-        ? request.cookies.sessionToken
-        : request.headers.authorization?.split(' ')[1]
-      const session = await slideSessionController(sessionToken as string)
-      if (envConfig.COOKIE_MODE) {
-        reply
-          .setCookie('sessionToken', session.token, {
-            path: '/',
-            httpOnly: true,
-            secure: true,
-            expires: session.expiresAt,
-            sameSite: 'none',
-            domain: envConfig.DOMAIN
-          })
-          .send({
-            message: 'Refresh session thành công',
-            data: {
-              token: session.token,
-              account: request.account!,
-              expiresAt: session.expiresAt.toISOString()
-            }
-          })
-      } else {
-        reply.send({
-          message: 'Refresh session thành công',
-          data: {
-            token: session.token,
-            expiresAt: session.expiresAt.toISOString(),
-            account: request.account!
-          }
-        })
-      }
+      const result = await refreshTokenController(request.body.refreshToken)
+      reply.send({
+        message: 'Lấy token mới thành công',
+        data: result
+      })
     }
   )
 }

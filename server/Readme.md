@@ -1,10 +1,10 @@
 # Giới thiệu về API
 
-Đây là backend API cho dự án Next.js Free. Chủ đề là một Shop bán hàng đơn giản với với các chức năng cơ bản:
+Đây là backend API cho dự án Order món ă
 
 - Authentication: Login, Register, Logout
 - Account: Get thông tin cá nhân, Cập nhật thông tin cá nhân
-- Product: Thêm, Sửa, Xóa sản phẩm, Lấy danh sách sản phẩm
+- Dish: Đọc, Thêm, Sửa, Xóa món ăn
 - Media: Upload hình ảnh
 - Test API
 
@@ -26,7 +26,7 @@ npm i
 npm run dev
 ```
 
-Trong trường hợp muốn chạy production, chạy lệnh
+Trong trường hợp muốn chạy dishion, chạy lệnh
 
 ```bash
 npm run build
@@ -107,87 +107,26 @@ Với các API POST, PUT thông thường thì body gửi lên phải là JSON, 
 
 API xác thực người dùng thông qua session token, session token này là một JWT, secret key JWT này sẽ được lưu trong file `.env` và được sử dụng để tạo và verify token
 
-Đối với các API cần xác thực người dùng như bên cụm API về `Account` thì bạn có 2 cách để server biết bạn là ai:
-
-1. Gửi session token thông qua header `sessionToken`
-2. Để cookie tự gửi lên (vì khi gọi api login hay register thì server sẽ set cookie cho bạn)
+Đối với các API cần xác thực người dùng như bên cụm API về `Account` thì bạn cần gửi accessToken lên server thông qua header `Authorization: "Bearer <accessToken>"`
 
 ### Test API: muốn biết api có hoạt động không
 
 - `GET /test`: Trả về message nghĩa là API hoạt động
 
-### Authentication
+### Các API cần realtime
 
-- `POST /auth/register`: Đăng ký tài khoản
-
-```json
-{
-  "name": "Dư Thanh Được",
-  "email": "user@gmail.com",
-  "password": "123123",
-  "confirmPassword": "123123"
-}
-```
-
-Khi register, login thành công thì server sẽ tự động set cookie cho domain là `localhost` với tên là `sessionToken`
-
-- `POST /auth/login`: Đăng nhập
-
-```json
-{
-  "email": "user@gmail.com",
-  "password": "123123"
-}
-```
-
-- `POST /auth/slide-session`: Tăng thời gian hết hạn của session token. Body là `{}`
-
-Yêu cầu cần phải gửi lên `sessionToken` (qua cookie hay Authorization header là tùy mode của bạn)
-
-- `POST /auth/logout`: Đăng xuất với body là `{}`, yêu cầu xác thực
-
-Khi logout thì server của mình sẽ tự động remove cookie `sessionToken` đi
-
-### Account: Cần xác thực
-
-- `GET /account/me`: Lấy thông tin cá nhân
-- `PUT /account/me`: Cập nhật thông tin cá nhân
-
-```json
-{
-  "name": "Dư Thanh Được"
-}
-```
-
-### Media: Cần xác thực
-
-- `POST /media/upload`: Upload hình ảnh
-
-Body gửi dưới dạng `form-data`, key là `file`, value là file hình ảnh.
-
-API này mình cũng làm nhanh nên backend không có validate ảnh có đúng định dạng gì không, nên các bạn upload cho đúng hình ảnh là được.
-
-Giới hạn file upload là 10MB
-
-### Products
-
-- `GET /products`: Lấy danh sách sản phẩm
-- `POST /products`: Thêm sản phẩm (Cần xác thực)
-  Body định dạng sau
-
-  ```json
-  {
-    "name": "Iphone 11",
-    "price": 20000000,
-    "description": "Mô tả cho iphone 11",
-    "image": "http://localhost:4000/static/bec024f9ea534b7fbf078cb5462b30aa.jpg"
-  }
-  ```
-
-- `PUT /products/:id`: Sửa sản phẩm, body tương tự như thêm sản phẩm (Cần xác thực)
-- `DELETE /products/:id`: Xóa sản phẩm (Cần xác thực)
-- `GET /products/:id`: Lấy chi tiết sản phẩm
+- `POST /guest/orders`: Tạo order mới
 
 ## Setup nhanh postman
 
 Mình có lưu 1 file là `NextJs Free API.postman_collection.json` trong thư mục `server`, các bạn chỉ cần import file này vào Postman là có ngay collection của mình. Tiếp theo các bạn tạo 1 environment mới, và set biến `host` là `http://localhost:4000`, và chọn environment này khi gọi API là xong.
+
+## Tài khoản mặc định
+
+Tài khoản admin: admin@order.com | 123456
+Tài khoản user:
+
+- phuminhdat@gmail.com | 123123
+- buianhson@gmail.com | 123123
+- ngocbichhuynh@gmail.com | 123123
+- binhnguyen@gmail.com | 123123

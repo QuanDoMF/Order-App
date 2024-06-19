@@ -13,11 +13,14 @@ import path from 'path'
 import { createFolder } from '@/utils/helpers'
 import mediaRoutes from '@/routes/media.route'
 import staticRoutes from '@/routes/static.route'
-import productRoutes from '@/routes/product.route'
+import dishRoutes from '@/routes/dish.route'
 import testRoutes from '@/routes/test.route'
+import { initOwnerAccount } from '@/controllers/account.controller'
+import tablesRoutes from '@/routes/table.route'
+import guestRoutes from '@/routes/guest.route'
 
 const fastify = Fastify({
-  logger: true
+  logger: false
 })
 
 // Run the server!
@@ -45,7 +48,7 @@ const start = async () => {
       prefix: '/auth'
     })
     fastify.register(accountRoutes, {
-      prefix: '/account'
+      prefix: '/accounts'
     })
     fastify.register(mediaRoutes, {
       prefix: '/media'
@@ -53,12 +56,19 @@ const start = async () => {
     fastify.register(staticRoutes, {
       prefix: '/static'
     })
-    fastify.register(productRoutes, {
-      prefix: '/products'
+    fastify.register(dishRoutes, {
+      prefix: '/dishes'
+    })
+    fastify.register(tablesRoutes, {
+      prefix: '/tables'
     })
     fastify.register(testRoutes, {
       prefix: '/test'
     })
+    fastify.register(guestRoutes, {
+      prefix: '/guest'
+    })
+    await initOwnerAccount()
     await fastify.listen({
       port: envConfig.PORT
     })

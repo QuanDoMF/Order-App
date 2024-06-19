@@ -60,7 +60,7 @@ export const errorHandlerPlugin = fastifyPlugin(async (fastify) => {
       })
     } else if (isAuthError(error)) {
       return reply
-        .setCookie('sessionToken', '', {
+        .setCookie('session_token', '', {
           path: '/',
           httpOnly: true,
           sameSite: 'none',

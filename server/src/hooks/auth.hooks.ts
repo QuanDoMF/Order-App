@@ -1,22 +1,27 @@
-import envConfig from '@/config'
-import prisma from '@/database'
+import { Role } from '@/constants/type'
 import { AuthError } from '@/utils/errors'
+import { verifyAccessToken } from '@/utils/jwt'
 import { FastifyRequest } from 'fastify'
 
 export const requireLoginedHook = async (request: FastifyRequest) => {
-  const sessionToken = envConfig.COOKIE_MODE
-    ? request.cookies.sessionToken
-    : request.headers.authorization?.split(' ')[1]
+  const accessToken = request.headers.authorization?.split(' ')[1]
+  if (!accessToken) throw new AuthError('Không nhận được access token')
+  try {
+    const decodedAccessToken = verifyAccessToken(accessToken)
+    request.decodedAccessToken = decodedAccessToken
+  } catch (error) {
+    throw new AuthError('Access token không hợp lệ')
+  }
+}
 
-  if (!sessionToken) throw new AuthError('Không nhận được session token')
-  const session_row = await prisma.session.findUnique({
-    where: {
-      token: sessionToken as string
-    },
-    include: {
-      account: true
-    }
-  })
-  if (!session_row) throw new AuthError('Session Token không tồn tại')
-  request.account = session_row.account
+export const requireOwnerHook = async (request: FastifyRequest) => {
+  if (request.decodedAccessToken?.role !== Role.Owner) {
+    throw new AuthError('Bạn không có quyền truy cập')
+  }
+}
+
+export const requireGuestHook = async (request: FastifyRequest) => {
+  if (request.decodedAccessToken?.role !== Role.Guest) {
+    throw new AuthError('Bạn không có quyền truy cập')
+  }
 }

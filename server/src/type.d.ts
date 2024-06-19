@@ -11,9 +11,6 @@ declare global {
 declare module 'fastify' {
   interface FastifyInstance {}
   interface FastifyRequest {
-    account?: Account
-    cookies: {
-      sessionToken?: string
-    }
+    decodedAccessToken?: TokenPayload
   }
 }

@@ -1,73 +1,19 @@
-import envConfig from '@/config'
-import { PrismaErrorCode } from '@/constants/error-reference'
 import prisma from '@/database'
-import { LoginBodyType, RegisterBodyType } from '@/schemaValidations/auth.schema'
-import { comparePassword, hashPassword } from '@/utils/crypto'
-import { EntityError, isPrismaClientKnownRequestError } from '@/utils/errors'
-import { signSessionToken } from '@/utils/jwt'
-import { addMilliseconds } from 'date-fns'
-import ms from 'ms'
+import { LoginBodyType } from '@/schemaValidations/auth.schema'
+import { RoleType, TokenPayload } from '@/types/jwt.types'
+import { comparePassword } from '@/utils/crypto'
+import { AuthError, EntityError } from '@/utils/errors'
+import { signAccessToken, signRefreshToken, verifyRefreshToken } from '@/utils/jwt'
 
-export const registerController = async (body: RegisterBodyType) => {
-  try {
-    const hashedPassword = await hashPassword(body.password)
-    const account = await prisma.account.create({
-      data: {
-        name: body.name,
-        email: body.email,
-        password: hashedPassword
-      }
-    })
-
-    const sessionToken = signSessionToken({
-      userId: account.id
-    })
-    const expiresAt = addMilliseconds(new Date(), ms(envConfig.SESSION_TOKEN_EXPIRES_IN))
-    const session = await prisma.session.create({
-      data: {
-        accountId: account.id,
-        token: sessionToken,
-        expiresAt
-      }
-    })
-    return {
-      account,
-      session
-    }
-  } catch (error: any) {
-    if (isPrismaClientKnownRequestError(error)) {
-      if (error.code === PrismaErrorCode.UniqueConstraintViolation) {
-        throw new EntityError([{ field: 'email', message: 'Email đã tồn tại' }])
-      }
-    }
-    throw error
-  }
-}
-export const logoutController = async (sessionToken: string) => {
-  await prisma.session.delete({
+export const logoutController = async (refreshToken: string) => {
+  await prisma.refreshToken.delete({
     where: {
-      token: sessionToken
+      token: refreshToken
     }
   })
   return 'Đăng xuất thành công'
 }
 
-/**
- * Tăng thời gian hết hạn của session token lên
- * @param sessionToken
- */
-export const slideSessionController = async (sessionToken: string) => {
-  const expiresAt = addMilliseconds(new Date(), ms(envConfig.SESSION_TOKEN_EXPIRES_IN))
-  const session = await prisma.session.update({
-    where: {
-      token: sessionToken
-    },
-    data: {
-      expiresAt
-    }
-  })
-  return session
-}
 export const loginController = async (body: LoginBodyType) => {
   const account = await prisma.account.findUnique({
     where: {
@@ -81,20 +27,70 @@ export const loginController = async (body: LoginBodyType) => {
   if (!isPasswordMatch) {
     throw new EntityError([{ field: 'password', message: 'Email hoặc mật khẩu không đúng' }])
   }
-  const sessionToken = signSessionToken({
-    userId: account.id
+  const accessToken = signAccessToken({
+    userId: account.id,
+    role: account.role as RoleType
   })
-  const expiresAt = addMilliseconds(new Date(), ms(envConfig.SESSION_TOKEN_EXPIRES_IN))
+  const refreshToken = signRefreshToken({
+    userId: account.id,
+    role: account.role as RoleType
+  })
+  const decodedRefreshToken = verifyRefreshToken(refreshToken)
+  const refreshTokenExpiresAt = new Date(decodedRefreshToken.exp * 1000)
 
-  const session = await prisma.session.create({
+  await prisma.refreshToken.create({
     data: {
       accountId: account.id,
-      token: sessionToken,
-      expiresAt
+      token: refreshToken,
+      expiresAt: refreshTokenExpiresAt
     }
   })
   return {
     account,
-    session
+    accessToken,
+    refreshToken
+  }
+}
+
+export const refreshTokenController = async (refreshToken: string) => {
+  let decodedRefreshToken: TokenPayload
+  try {
+    decodedRefreshToken = verifyRefreshToken(refreshToken)
+  } catch (error) {
+    throw new AuthError('Refresh token không hợp lệ')
+  }
+  const refreshTokenDoc = await prisma.refreshToken.findUniqueOrThrow({
+    where: {
+      token: refreshToken
+    },
+    include: {
+      account: true
+    }
+  })
+  const account = refreshTokenDoc.account
+  const newAccessToken = signAccessToken({
+    userId: account.id,
+    role: account.role as RoleType
+  })
+  const newRefreshToken = signRefreshToken({
+    userId: account.id,
+    role: account.role as RoleType,
+    exp: decodedRefreshToken.exp
+  })
+  await prisma.refreshToken.delete({
+    where: {
+      token: refreshToken
+    }
+  })
+  await prisma.refreshToken.create({
+    data: {
+      accountId: account.id,
+      token: newRefreshToken,
+      expiresAt: refreshTokenDoc.expiresAt
+    }
+  })
+  return {
+    accessToken: newAccessToken,
+    refreshToken: newRefreshToken
   }
 }
