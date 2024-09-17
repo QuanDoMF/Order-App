@@ -24,7 +24,15 @@ export class HttpError extends Error {
     message: string
     [key: string]: any
   }
-  constructor({ status, payload, message = "Lỗi HTTP" }: { status: number; payload: any, message?: string }) {
+  constructor({
+    status,
+    payload,
+    message = 'Lỗi HTTP'
+  }: {
+    status: number
+    payload: any
+    message?: string
+  }) {
     super(message)
     this.status = status
     this.payload = payload
@@ -41,15 +49,13 @@ export class EntityError extends HttpError {
     status: typeof ENTITY_ERROR_STATUS
     payload: EntityErrorPayload
   }) {
-    super({ status, payload, message: 'Lỗi thực thể'})
+    super({ status, payload, message: 'Lỗi thực thể' })
     this.status = status
     this.payload = payload
   }
 }
 
 let clientLogoutRequest: null | Promise<any> = null
-
-
 const isClient = typeof window !== 'undefined'
 const request = async <Response>(
   method: 'GET' | 'POST' | 'PUT' | 'DELETE',
@@ -71,7 +77,7 @@ const request = async <Response>(
           'Content-Type': 'application/json'
         }
   if (isClient) {
-    const accessToken = localStorage.getItem('sessionToken')
+    const accessToken = localStorage.getItem('accessToken')
     if (accessToken) {
       baseHeaders.Authorization = `Bearer ${accessToken}`
     }
@@ -113,7 +119,7 @@ const request = async <Response>(
         if (!clientLogoutRequest) {
           clientLogoutRequest = fetch('/api/auth/logout', {
             method: 'POST',
-            body: null,     // logout cho phép luôn thành công
+            body: null, // Logout mình sẽ cho phép luôn luôn thành công
             headers: {
               ...baseHeaders
             } as any
@@ -122,10 +128,13 @@ const request = async <Response>(
             await clientLogoutRequest
           } catch (error) {
           } finally {
-            localStorage.removeItem('sessionToken')
+            localStorage.removeItem('accessToken')
             localStorage.removeItem('refreshToken')
             clientLogoutRequest = null
-            // Redirect về trang login có thể loop vô hạn nếu k được xử lý đúng cách
+            // Redirect về trang login có thể dẫn đến loop vô hạn
+            // Nếu không không được xử lý đúng cách
+            // Vì nếu rơi vào trường hợp tại trang Login, chúng ta có gọi các API cần access token
+            // Mà access token đã bị xóa thì nó lại nhảy vào đây, và cứ thế nó sẽ bị lặp
             location.href = '/login'
           }
         }
@@ -142,13 +151,11 @@ const request = async <Response>(
   // Đảm bảo logic dưới đây chỉ chạy ở phía client (browser)
   if (isClient) {
     const normalizeUrl = normalizePath(url)
-    if (
-     normalizeUrl === 'api/auth/login'
-    ) {
+    if (normalizeUrl === 'api/auth/login') {
       const { accessToken, refreshToken } = (payload as LoginResType).data
       localStorage.setItem('accessToken', accessToken)
       localStorage.setItem('refreshToken', refreshToken)
-    } else if (normalizeUrl ===  'api/auth/logout') {
+    } else if (normalizeUrl === 'api/auth/logout') {
       localStorage.removeItem('accessToken')
       localStorage.removeItem('refreshToken')
     }
