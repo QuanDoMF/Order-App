@@ -35,7 +35,7 @@ export default function LoginForm() {
     try {
       const result = await loginMutation.mutateAsync(data)
       toast({
-        description: result.payload.message
+        description: result.payload.message,
       })
       router.push('/manage/dashboard')
     } catch (error: any) {
