@@ -9,34 +9,43 @@ import { useForm } from "react-hook-form";
 import { UpdateMeBody, UpdateMeBodyType} from "@/schemaValidations/account.schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormField, FormItem, FormMessage } from "@/components/ui/form";
+import { toast } from "@/components/ui/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useRef } from "react";
-import { useAccountProfile } from "@/queries/useAccount";
+import { useAccountMe, useUpdateMeMutation } from "@/queries/useAccount";
+import { useUploadMediaMutation } from "@/queries/useMedia";
+import { handleErrorApi } from "@/lib/utils";
+
 
 export default function UpdateProfileForm() {
   const [file, setFile] = useState<File | null>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
-  useAccountProfile((data) => {
-    console.log("data", data);
-    const { name, avatar } = data.data;
-    form.reset({
-      name,
-      avatar: avatar ?? "",
-    });
-  });
-  useEffect(() => {});
+  const { data, refetch } = useAccountMe()
+  const updateMeMutation = useUpdateMeMutation()
+  const uploadMediaMutation = useUploadMediaMutation()
+
   const form = useForm<UpdateMeBodyType>({
     resolver: zodResolver(UpdateMeBody),
     defaultValues: {
       name: "",
-      avatar: "",
+      avatar: undefined,
     },
   });
 
+  const avatar = form.watch('avatar')
+  const name = form.watch('name')
+  useEffect(() => {
+    if (data) {
+      const { name, avatar } = data.payload.data
+      form.reset({
+        name,
+        avatar: avatar ?? undefined
+      })
+    }
+  }, [form, data])
   // nếu dùng next 15, react 19 thì k cần dùng useMemo chỗ này
 
-  const avatar = form.watch("avatar");
-  const name = form.watch("name");
+  
   const previewAvatar = useMemo(() => {
     if (file) {
       return URL.createObjectURL(file);
@@ -44,11 +53,45 @@ export default function UpdateProfileForm() {
     return avatar;
   }, [avatar, file]);
 
+  const reset = () => {{
+    form.reset()
+    setFile(null)
+  }}
+
+  const onSubmit = async (values: UpdateMeBodyType) => {
+    if(updateMeMutation.isPending) return
+    
+    try {
+      let body = values
+      if(file){
+        const formData = new FormData()
+        formData.append('file', file)
+        const uploadImageResult = await uploadMediaMutation.mutateAsync(formData)
+        const imageUrl = uploadImageResult.payload.data // là url
+        body = {
+          ...values,
+          avatar: imageUrl
+        }
+      }
+      const result = await updateMeMutation.mutateAsync(body)
+      toast({
+        description: result.payload.message,
+      })
+      refetch()
+    } catch (error) {
+      handleErrorApi({
+        error,
+        setError: form.setError
+      })
+    }
+  }
   return (
     <Form {...form}>
       <form
         noValidate
         className="grid auto-rows-max items-start gap-4 md:gap-8"
+        onReset={reset}
+        onSubmit={form.handleSubmit(onSubmit)}
       >
         <Card x-chunk="dashboard-07-chunk-0">
           <CardHeader>
@@ -77,6 +120,7 @@ export default function UpdateProfileForm() {
                           const file = e.target.files?.[0];
                           if (file) {
                             setFile(file);
+                            field.onChange('http://localhost:3000/' + field.name)
                           }
                         }}
                       />
@@ -113,7 +157,7 @@ export default function UpdateProfileForm() {
               />
 
               <div className=" items-center gap-2 md:ml-auto flex">
-                <Button variant="outline" size="sm" type="reset">
+                <Button variant="outline" size="sm" type="reset" >
                   Hủy
                 </Button>
                 <Button size="sm" type="submit">
