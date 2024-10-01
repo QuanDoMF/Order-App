@@ -139,6 +139,8 @@ const request = async <Response>(
           }
         }
       } else {
+        // đây là trường hợp accessToken còn hạn
+        // và chúng ta gọi api  ở nextJS server 
         const accessToken = (options?.headers as any)?.Authorization.split(
           'Bearer '
         )[1]
